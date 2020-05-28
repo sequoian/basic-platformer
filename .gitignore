@@ -1,0 +1,10 @@
+# Ignore everything
+*
+# Whitelist Assets, Packages, and ProjectSettings folders
+!.gitignore
+!Assets/
+!Assets/**/*
+!Packages/
+!Packages/**/*
+!ProjectSettings/
+!ProjectSettings/**/*
