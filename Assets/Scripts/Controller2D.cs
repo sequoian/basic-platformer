@@ -12,7 +12,8 @@ public class Controller2D : MonoBehaviour {
 	const float skinWidth = .015f;
 	float horizontalRaySpacing;
 	float verticalRaySpacing;
-	BoxCollider2D collider2d;
+	[HideInInspector]
+	public BoxCollider2D collider2d;
 	RaycastOrigins raycastOrigins;
 	
 	void Start() 

@@ -4,14 +4,21 @@ using System.Collections;
 [RequireComponent (typeof (Controller2D))]
 public class Player : MonoBehaviour {
 
-	public float jumpHeight = 4;
-	public float timeToJumpApex = .4f;
+	public float maxJumpHeight = 6;
+	public float minJumpHeight = 2;
+	public float timeToJumpApex = .6f;
 	public float accelerationTimeAirborne = .2f;
 	public float accelerationTimeGrounded = .1f;
-	public float moveSpeed = 6;
+	public float moveSpeed = 10;
+	public float jumpGraceTime = .12f;
+	public float jumpBufferTime = .12f;
 
 	float gravity;
-	float jumpVelocity;
+	float maxJumpVelocity;
+	float minJumpVelocity;
+	float jumpGraceTimer;
+	float maxJumpBufferTimer;
+	float minJumpBufferTimer;
 	Vector3 velocity;
 	Controller2D controller;
 
@@ -23,8 +30,9 @@ public class Player : MonoBehaviour {
 	void CalculateGravityAndJump() 
 	{
 		// Calculate gravity and jump velocity by using jumpHeight, gravity and timeToJumpApex
-		gravity = -(2 * jumpHeight) / Mathf.Pow(timeToJumpApex, 2);
-		jumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
+		gravity = -(2 * maxJumpHeight) / Mathf.Pow(timeToJumpApex, 2);
+		maxJumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
+		minJumpVelocity = Mathf.Sqrt(2 * Mathf.Abs(gravity) * minJumpHeight);
 	}
 
 	float Approach(float value, float target, float maxMove) 
@@ -37,13 +45,25 @@ public class Player : MonoBehaviour {
 	void Update() 
 	{
 		// Stop y velocity if hitting ground or ceiling
-		if (controller.collisions.above || controller.collisions.below) {
+		if (controller.collisions.above || controller.collisions.below) 
+		{
 			velocity.y = 0;
 		}
 
 		// Stop x velocity if hitting a wall
-		if (controller.collisions.left || controller.collisions.right) {
+		if (controller.collisions.left || controller.collisions.right) 
+		{
 			velocity.x = 0;
+		}
+
+		// Keep track of jump grace timer
+		if (controller.collisions.below) 
+		{
+			jumpGraceTimer = jumpGraceTime;
+		}
+		else
+		{
+			jumpGraceTimer -= Time.deltaTime;
 		}
 
 		// TODO: For better performance, this should be in Start(). Used in Update() for 
@@ -53,9 +73,37 @@ public class Player : MonoBehaviour {
 		// Get movement input
 		Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-		// Jump if the player presses space and is on the ground
-		if (Input.GetButtonDown("Jump") && controller.collisions.below) {
-			velocity.y = jumpVelocity;
+		// Get jump input and set buffer timer
+		if (Input.GetButtonDown("Jump"))
+		{
+			maxJumpBufferTimer = jumpBufferTime;
+		}
+		else if (Input.GetButtonUp("Jump"))
+		{
+			minJumpBufferTimer = jumpBufferTime;
+		}
+		else
+		{
+			maxJumpBufferTimer -= Time.deltaTime;
+			minJumpBufferTimer -= Time.deltaTime;
+		}
+
+		// Jumping
+		if (maxJumpBufferTimer >= 0 && jumpGraceTimer >= 0) 
+		{
+			// Jump if the player has been on the ground and pressed jump within a certain time
+			velocity.y = minJumpBufferTimer >= 0 ? minJumpVelocity : maxJumpVelocity;
+
+			// Zero out jump timers to prevent multiple jumps
+			jumpGraceTimer = 0;
+			maxJumpBufferTimer = 0;
+			minJumpBufferTimer = 0;
+		}
+		else if (minJumpBufferTimer >= 0 && velocity.y > minJumpVelocity)
+		{
+			// Reduce the height of the jump if releasing the jump button
+			velocity.y = minJumpVelocity;
+			minJumpBufferTimer = 0;
 		}
 
 		// Keep track of the old velocity for final velocity calculation
