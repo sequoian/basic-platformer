@@ -1,25 +1,17 @@
 ﻿using UnityEngine;
-using System.Collections;
 
 [RequireComponent (typeof (BoxCollider2D))]
-public class Controller2D : MonoBehaviour {
+public class Controller2D : RaycastController {
 
-	public LayerMask collisionMask;
 	public CollisionInfo collisions;
-	public int horizontalRayCount = 4;
-	public int verticalRayCount = 4;
 
-	const float skinWidth = .015f;
-	float horizontalRaySpacing;
-	float verticalRaySpacing;
 	[HideInInspector]
-	public BoxCollider2D collider2d;
-	RaycastOrigins raycastOrigins;
+	public int faceDirection;
 	
-	void Start() 
+	public override void Start() 
 	{
-		collider2d = GetComponent<BoxCollider2D>();
-		CalculateRaySpacing();
+		base.Start();
+		faceDirection = 1;
 	}
 
 	public void Move(Vector3 velocity) 
@@ -28,10 +20,15 @@ public class Controller2D : MonoBehaviour {
 		UpdateRaycastOrigins();
 		collisions.Reset();
 
-		// Detect and resolve collisions
-		if (velocity.x != 0) {
-			HorizontalCollisions(ref velocity);
+		if (velocity.x != 0)
+		{
+			// Set which direction the player is facing
+			faceDirection = (int)Mathf.Sign(velocity.x);
 		}
+
+		// Detect and resolve collisions
+		HorizontalCollisions(ref velocity);
+
 		if (velocity.y != 0) {
 			VerticalCollisions(ref velocity);
 		}
@@ -43,8 +40,13 @@ public class Controller2D : MonoBehaviour {
 	void HorizontalCollisions(ref Vector3 velocity) 
 	{
 		// Set the length and direction for the raycast
-		float directionX = Mathf.Sign(velocity.x);
+		float directionX = faceDirection;
 		float rayLength = Mathf.Abs(velocity.x) + skinWidth;
+		if (Mathf.Abs(velocity.x) < skinWidth)
+		{
+			// Set minimal ray length if not moving
+			rayLength = skinWidth * 2;
+		}
 		
 		// For each horizontal ray
 		for (int i = 0; i < horizontalRayCount; i ++) {
@@ -53,7 +55,7 @@ public class Controller2D : MonoBehaviour {
 				raycastOrigins.bottomLeft : raycastOrigins.bottomRight;
 			rayOrigin += Vector2.up * (horizontalRaySpacing * i);
 
-			// Cast the ray in the direction of horizontal movement
+			// Cast the ray in the direction of horizontal movement and detect collisions
 			RaycastHit2D hit = Physics2D.Raycast(
 				rayOrigin, Vector2.right * directionX, rayLength, collisionMask);
 
@@ -103,43 +105,6 @@ public class Controller2D : MonoBehaviour {
 				collisions.above = directionY == 1;
 			}
 		}
-	}
-
-	// Calculates the positions of each corner of the collider
-	void UpdateRaycastOrigins() 
-	{
-		// Get the size of the collider, contracted by twice the skin width
-		Bounds bounds = collider2d.bounds;
-		bounds.Expand(skinWidth * -2);
-
-		// Set the values of raycastOrigins struct
-		raycastOrigins.bottomLeft = new Vector2(bounds.min.x, bounds.min.y);
-		raycastOrigins.bottomRight = new Vector2(bounds.max.x, bounds.min.y);
-		raycastOrigins.topLeft = new Vector2(bounds.min.x, bounds.max.y);
-		raycastOrigins.topRight = new Vector2(bounds.max.x, bounds.max.y);
-	}
-
-	// Calulates the information need to figure out where each collision ray should be positioned
-	void CalculateRaySpacing() 
-	{
-		// Get the size of the collider, contracted by twice the skin width
-		Bounds bounds = collider2d.bounds;
-		bounds.Expand(skinWidth * -2);
-
-		// Get ray count on each side
-		horizontalRayCount = Mathf.Clamp(horizontalRayCount, 2, int.MaxValue);
-		verticalRayCount = Mathf.Clamp(verticalRayCount, 2, int.MaxValue);
-
-		// Get the spacing between each ray
-		horizontalRaySpacing = bounds.size.y / (horizontalRayCount - 1);
-		verticalRaySpacing = bounds.size.x / (verticalRayCount - 1);
-	}
-
-	// Represents the position of each corner of the bounding box
-	struct RaycastOrigins 
-	{
-		public Vector2 topLeft, topRight;
-		public Vector2 bottomLeft, bottomRight;
 	}
 
 	// Represents which side of the collider was hit by a collision

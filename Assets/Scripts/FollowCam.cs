@@ -74,12 +74,12 @@ public class FollowCam : MonoBehaviour
 		transform.position = (Vector3)cameraPosition + Vector3.forward * -10;
 	}
 
-	void OnDrawGizmos() 
-	{
-		// Draw the focus area
-		Gizmos.color = new Color(1, 0, 0, .5f);
-		Gizmos.DrawCube(focusArea.center, focusAreaSize);
-	}
+	// void OnDrawGizmos() 
+	// {
+	// 	// Draw the focus area
+	// 	Gizmos.color = new Color(1, 0, 0, .5f);
+	// 	Gizmos.DrawCube(focusArea.center, focusAreaSize);
+	// }
 
 	struct FocusArea 
 	{
