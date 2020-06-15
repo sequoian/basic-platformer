@@ -17,6 +17,9 @@ public class Player : MonoBehaviour {
 	public Vector2 wallJumpToward;
 	public Vector2 wallJumpNeutral;
 	public Vector2 wallJumpAway;
+	public float halfGravityThreshold;
+	public float terminalVelocity = 30f;
+	public float terminalDamping = 0.98f;
 
 	float gravity;
 	float maxJumpVelocity;
@@ -189,8 +192,18 @@ public class Player : MonoBehaviour {
 			velocity.x = 0;
 		}
 		
-		// Accelerate along the y axis
-		velocity.y += gravity * Time.deltaTime;
+		// Modify the gravity at the peak of a jump
+		float gravMultiplier = Mathf.Abs(velocity.y) < halfGravityThreshold
+			&& Input.GetButton("Jump") ? 0.5f : 1f;
+
+		// Apply gravity
+		velocity.y += gravity * gravMultiplier * Time.deltaTime;
+
+		// Cap to terminal velocity
+		if (velocity.y < -terminalVelocity)
+		{
+			velocity.y *= terminalDamping;
+		}
 
 		// Move the player
 		// Use the average between the old and new velocity for more accurate results
