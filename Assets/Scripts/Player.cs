@@ -138,7 +138,13 @@ public class Player : MonoBehaviour {
 					// Jump while pushing away from wall
 					velocity.x = -wallDirX * wallJumpAway.x;
 					velocity.y = wallJumpAway.y;
-				}				
+				}
+				
+				// Set buffer timer to less than 0 to prevent min jump from triggering on the
+				// same frame. Note: this could also be avoid by using the buffer timer for
+				// wall jumps and handling the jump logic with the other jump logic
+				minJumpBufferTimer = -1;	
+				maxJumpBufferTimer = -1;
 			}
 			else
 			{
