@@ -4,23 +4,35 @@ using System.Collections;
 [RequireComponent (typeof (Controller2D))]
 public class Player : MonoBehaviour {
 
-	public float maxJumpHeight = 6;
-	public float minJumpHeight = 2;
-	public float timeToJumpApex = .6f;
-	public float accelerationTimeAirborne = .2f;
-	public float accelerationTimeGrounded = .1f;
-	public float moveSpeed = 10;
-	public float jumpGraceTime = .12f;
-	public float jumpBufferTime = .12f;
-	public float wallSlideMaxSpeed = 3;
-	public float wallStickTime = .25f;
+	[Header("Running")]
+	public float moveSpeed = 12;
+	public float accelGrounded = .1f;
+	public float decelGrounded = .1f;
+	public float accelAirborne = .2f;
+	public float decelAirborne = .2f;
+
+	[Header("Jumping")]
+	public float maxJumpHeight = 4.5f;
+	public float minJumpHeight = .5f;
+	public float timeToJumpApex = .5f;
+	public float jumpGraceTime = .1f;
+	public float jumpBufferTime = .08f;
+	public float halfGravityThreshold = 1;
+
+	[Header("Wall Jumping")]
 	public Vector2 wallJumpToward;
 	public Vector2 wallJumpNeutral;
 	public Vector2 wallJumpAway;
-	public float halfGravityThreshold;
-	public float terminalVelocity = 30f;
-	public float terminalDamping = 0.98f;
+	public float wallStickTime = .15f;
+	public float wallSlideMaxSpeed = 10;
 
+	[Header("Falling")]
+	public float terminalVelocity = 20f;
+	public float terminalDamping = 0.98f;
+	
+	// Private variables
+	Vector3 velocity;
+	Controller2D controller;
 	float gravity;
 	float maxJumpVelocity;
 	float minJumpVelocity;
@@ -28,9 +40,7 @@ public class Player : MonoBehaviour {
 	float maxJumpBufferTimer;
 	float minJumpBufferTimer;
 	float timeToWallUnstick;
-	Vector3 velocity;
-	Controller2D controller;
-
+	
 	void Start() 
 	{
 		controller = GetComponent<Controller2D>();
@@ -188,8 +198,20 @@ public class Player : MonoBehaviour {
 		// Accelerate along the x axis
 		// Approach the target velocity from the current velocity using acceleration
 		float targetVelocityX = input.x * moveSpeed;
-		float accelerationX = moveSpeed / 
-			(controller.collisions.below ? accelerationTimeGrounded : accelerationTimeAirborne);
+		float accelerationX = 0;
+		// Decelerate
+		if (input.x == 0)
+		{
+			accelerationX = moveSpeed / 
+			(controller.collisions.below ? decelGrounded : decelAirborne);
+		}
+		// Accelerate
+		else
+		{
+			accelerationX = moveSpeed / 
+			(controller.collisions.below ? accelGrounded : accelAirborne);
+		}
+
 		velocity.x = Approach(velocity.x, targetVelocityX, accelerationX * Time.deltaTime);
 
 		if (onWall && timeToWallUnstick > 0 && !Input.GetButtonDown("Jump"))

@@ -108,6 +108,8 @@ public class Controller2D : RaycastController {
 			bool corrected = false;
 
 			// Upward corner correction
+			// Note: This only works if the stage is completely aligned with the grid (make sure
+			// the position of the grid and the tileset use integers)
 			if (velocity.y > 0)
 			{
 				// Adjust boxcast scale so it does not collide with objects next to it
