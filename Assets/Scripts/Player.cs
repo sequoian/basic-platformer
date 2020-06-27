@@ -31,16 +31,27 @@ public class Player : MonoBehaviour {
 	// Private variables
 	Vector3 velocity;
 	Controller2D controller;
+	StateMachine stateMachine;
 	float gravity;
 	float maxJumpVelocity;
 	float minJumpVelocity;
 	float jumpGraceTimer;
 	float jumpBufferTimer;
 	float timeToWallUnstick;
+
+	// States
+	int numStates = 1;
+	int normalState = 0;
 	
 	void Start() 
 	{
 		controller = GetComponent<Controller2D>();
+		
+		// Init state machine
+		stateMachine = new StateMachine(numStates);
+		stateMachine.AddState(normalState, NormalUpdate, null, null);
+		stateMachine.SetState(normalState);
+
 	}
 
 	void CalculateGravityAndJump() 
@@ -57,7 +68,8 @@ public class Player : MonoBehaviour {
 		// flexible tweaking of values during runtime.
 		CalculateGravityAndJump();
 
-		NormalUpdate();
+		// Update current state
+		stateMachine.Update();
 
 	}
 
