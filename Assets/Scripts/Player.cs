@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using System.Collections;
 
 [RequireComponent (typeof (Controller2D))]
 public class Player : MonoBehaviour {
@@ -28,7 +27,6 @@ public class Player : MonoBehaviour {
 
 	[Header("Falling")]
 	public float terminalVelocity = 20f;
-	public float terminalDamping = 0.98f;
 	
 	// Private variables
 	Vector3 velocity;
@@ -37,8 +35,7 @@ public class Player : MonoBehaviour {
 	float maxJumpVelocity;
 	float minJumpVelocity;
 	float jumpGraceTimer;
-	float maxJumpBufferTimer;
-	float minJumpBufferTimer;
+	float jumpBufferTimer;
 	float timeToWallUnstick;
 	
 	void Start() 
@@ -54,21 +51,21 @@ public class Player : MonoBehaviour {
 		minJumpVelocity = Mathf.Sqrt(2 * Mathf.Abs(gravity) * minJumpHeight);
 	}
 
-	float Approach(float value, float target, float maxMove) 
+	void Update()
 	{
-		// Return value +/- maxMove, capping value to target
-		return value > target ? 
-			Mathf.Max(value - maxMove, target) : Mathf.Min(value + maxMove, target);
+		// TODO: For better performance, this should be in Start(). Used in Update() for 
+		// flexible tweaking of values during runtime.
+		CalculateGravityAndJump();
+
+		NormalUpdate();
+
 	}
 
-	void Update() 
+	void NormalUpdate() 
 	{
-		// Get movement input
-		Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-
-		// Handle wall interactions
+		// Handle horizontal collisions
 		bool onWall = false;
-		int wallDirX = controller.collisions.left ? -1 : 1;
+		int wallDirX = controller.collisions.left ? -1 : 1; 
 		if (controller.collisions.left || controller.collisions.right) 
 		{
 			// Stop x velocity if player is touching a wall
@@ -76,36 +73,12 @@ public class Player : MonoBehaviour {
 			
 			if (!controller.collisions.below)
 			{
-				// Player is wall sliding if not touching the ground
+				// Player is on wall if not touching the ground
 				onWall = true;
-
-				// Cap y velocity
-				if (velocity.y < -wallSlideMaxSpeed)
-				{
-					velocity.y = -wallSlideMaxSpeed;
-				}
-
-				// Keep track of wall stick timer
-				// Run timer if moving away from wall, otherwise reset timer
-				if (timeToWallUnstick > 0)
-				{
-					if (input.x != wallDirX && input.x != 0)
-					{
-						timeToWallUnstick -= Time.deltaTime;
-					}
-					else
-					{
-						timeToWallUnstick = wallStickTime;
-					}
-				}
-				else
-				{
-					timeToWallUnstick = wallStickTime;
-				}
 			}
 		}
 
-		// Stop y velocity if hitting ground or ceiling
+		// Handle vertical collisions
 		if (controller.collisions.above || controller.collisions.below) 
 		{
 			velocity.y = 0;
@@ -121,116 +94,132 @@ public class Player : MonoBehaviour {
 			jumpGraceTimer -= Time.deltaTime;
 		}
 
-		// TODO: For better performance, this should be in Start(). Used in Update() for 
-		// flexible tweaking of values during runtime.
-		CalculateGravityAndJump();
+		// Get movement input
+		Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-		// Get jump input and set buffer timer
+		// Set jump timer
 		if (Input.GetButtonDown("Jump"))
 		{
-			// Wall jump if available
-			if (onWall)
-			{
-				if (input.x == wallDirX)
-				{
-					// Jump while pushing against wall
-					velocity.x = -wallDirX * wallJumpToward.x;
-					velocity.y = wallJumpToward.y;
-				}
-				else if (input.x == 0)
-				{
-					// Jump while not moving
-					velocity.x = -wallDirX * wallJumpNeutral.x;
-					velocity.y = wallJumpNeutral.y;
-				}
-				else
-				{
-					// Jump while pushing away from wall
-					velocity.x = -wallDirX * wallJumpAway.x;
-					velocity.y = wallJumpAway.y;
-				}
-				
-				// Set buffer timer to less than 0 to prevent min jump from triggering on the
-				// same frame. Note: this could also be avoid by using the buffer timer for
-				// wall jumps and handling the jump logic with the other jump logic
-				minJumpBufferTimer = -1;	
-				maxJumpBufferTimer = -1;
-			}
-			else
-			{
-				// Set timer for ground jump
-				maxJumpBufferTimer = jumpBufferTime;
-			}
+			jumpBufferTimer = jumpBufferTime;
 		}
 		else if (Input.GetButtonUp("Jump"))
 		{
-			// Set timer for min jump
-			minJumpBufferTimer = jumpBufferTime;
+			jumpBufferTimer = 0;
 		}
 		else
 		{
 			// Advance timers
-			maxJumpBufferTimer -= Time.deltaTime;
-			minJumpBufferTimer -= Time.deltaTime;
+			jumpBufferTimer -= Time.deltaTime;
 		}
 
-		// Jumping from ground
-		if (maxJumpBufferTimer >= 0 && jumpGraceTimer >= 0) 
+		// Jump
+		bool wallJumping = false;
+		if (onWall && jumpBufferTimer > 0)
 		{
-			// Jump if the player has been on the ground and pressed jump within a certain time
-			velocity.y = minJumpBufferTimer >= 0 ? minJumpVelocity : maxJumpVelocity;
+			// Wall jump
+			if (input.x == wallDirX)
+			{
+				// Jump while pushing against wall
+				velocity.x = -wallDirX * wallJumpToward.x;
+				velocity.y = wallJumpToward.y;
+			}
+			else if (input.x == 0)
+			{
+				// Jump while not moving
+				velocity.x = -wallDirX * wallJumpNeutral.x;
+				velocity.y = wallJumpNeutral.y;
+			}
+			else
+			{
+				// Jump while pushing away from wall
+				velocity.x = -wallDirX * wallJumpAway.x;
+				velocity.y = wallJumpAway.y;
+			}
 
-			// Zero out jump timers to prevent multiple jumps
-			jumpGraceTimer = 0;
-			maxJumpBufferTimer = 0;
-			minJumpBufferTimer = 0;
+			jumpBufferTimer = 0;
+			wallJumping = true;
+
 		}
-		else if (minJumpBufferTimer >= 0 && velocity.y > minJumpVelocity)
+		else if (jumpBufferTimer > 0 && jumpGraceTimer > 0) 
+		{
+			// Jump from ground
+			velocity.y = maxJumpVelocity;
+
+			jumpGraceTimer = 0;
+			jumpBufferTimer = 0;
+		}
+		else if (Input.GetButtonUp("Jump") && velocity.y > minJumpVelocity)
 		{
 			// Reduce the height of the jump if releasing the jump button
 			velocity.y = minJumpVelocity;
-			minJumpBufferTimer = 0;
 		}
 
 		// Keep track of the old velocity for final velocity calculation
 		Vector3 oldVelocity = velocity;
 
-		// Accelerate along the x axis
-		// Approach the target velocity from the current velocity using acceleration
+		// Calulate horizontal acceleration
 		float targetVelocityX = input.x * moveSpeed;
 		float accelerationX = 0;
-		// Decelerate
 		if (input.x == 0)
 		{
+			// Decelerate
 			accelerationX = moveSpeed / 
 			(controller.collisions.below ? decelGrounded : decelAirborne);
 		}
-		// Accelerate
 		else
 		{
+			// Accelerate
 			accelerationX = moveSpeed / 
 			(controller.collisions.below ? accelGrounded : accelAirborne);
 		}
 
-		velocity.x = Approach(velocity.x, targetVelocityX, accelerationX * Time.deltaTime);
+		// Approach the target velocity from the current velocity using acceleration
+		velocity.x = Math.Approach(velocity.x, targetVelocityX, accelerationX * Time.deltaTime);
 
-		if (onWall && timeToWallUnstick > 0 && !Input.GetButtonDown("Jump"))
+		// Sticky wall
+		if (onWall)
 		{
-			// Stick to wall
-			velocity.x = 0;
+			// Run timer if moving away from wall, otherwise reset timer
+			if (timeToWallUnstick > 0)
+			{
+				if (input.x != wallDirX && input.x != 0)
+				{
+					timeToWallUnstick -= Time.deltaTime;
+				}
+				else
+				{
+					timeToWallUnstick = wallStickTime;
+				}
+			}
+			else
+			{
+				timeToWallUnstick = wallStickTime;
+			}
+
+			// Stick to wall if the timer has not run out
+			if (timeToWallUnstick > 0 && !wallJumping)
+			{
+				velocity.x = 0;
+			}
 		}
 		
-		// Modify the gravity at the peak of a jump
+		// Half gravity at peak of jump
 		float gravMultiplier = Mathf.Abs(velocity.y) < halfGravityThreshold
 			&& Input.GetButton("Jump") ? 0.5f : 1f;
 
 		// Apply gravity
 		velocity.y += gravity * gravMultiplier * Time.deltaTime;
 
-		// Cap to terminal velocity
-		if (velocity.y < -terminalVelocity)
+		// Cap vertical velocity
+		if (onWall && velocity.y < -wallSlideMaxSpeed)
 		{
-			velocity.y *= terminalDamping;
+			// Wall slide
+			velocity.y = -wallSlideMaxSpeed;
+		}
+		else if (velocity.y < -terminalVelocity)
+		{
+			// Terminal velocity
+			velocity.y = -terminalVelocity;
 		}
 
 		// Move the player
